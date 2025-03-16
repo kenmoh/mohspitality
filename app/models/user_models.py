@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import CHAR
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy.types import TypeDecorator
 
-from app.schemas.user_schema import PaymentGatwayEnum, UserType
+from app.schemas.user_schema import PaymentGatwayEnum, SubscriptionType, UserType
 
 
 class OrderNumber(TypeDecorator):
@@ -24,18 +24,12 @@ class OrderNumber(TypeDecorator):
             return generate_order_number()
         return value
 
-    def process_result_value(
-        self, value: str, dialect: Dialect
-    ) -> str:
+    def process_result_value(self, value: str, dialect: Dialect) -> str:
         return value
 
 
 def user_unique_id():
     return str(uuid.uuid1()).replace("-", "")
-
-
-def generate_6_digit_code():
-    return str(random.randint(0, 1000000)).zfill(6)
 
 
 class User(Base):
@@ -49,7 +43,10 @@ class User(Base):
     password: Mapped[str] = mapped_column(nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True)
     is_superuser: Mapped[bool] = mapped_column(default=False)
+    is_subscribed: Mapped[bool] = mapped_column(default=False)
     notification_token: Mapped[str] = mapped_column(nullable=True)
+    subscription_type: Mapped[SubscriptionType] = mapped_column(
+        nullable=True, default=SubscriptionType.TRIAL)
     is_verified: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -70,17 +67,19 @@ class User(Base):
         "PasswordReset", back_populates="user", cascade="all, delete-orphan"
     )
     user_profile = relationship(
-        'UserProfile', back_populates='user', uselist=False)
+        "UserProfile", back_populates="user", uselist=False)
     company_profile = relationship(
-        'CompanyProfile', back_populates='user', uselist=False)
+        "CompanyProfile", back_populates="user", uselist=False
+    )
     company = relationship("User", back_populates="staff", remote_side=[id])
     staff = relationship("User", back_populates="company")
     payment_gateway = relationship(
-        "PaymentGateway", back_populates="user", uselist=False)
+        "PaymentGateway", back_populates="user", uselist=False
+    )
 
 
 class UserProfile(Base):
-    __tablename__ = 'user_profiles'
+    __tablename__ = "user_profiles"
     id: Mapped[str] = mapped_column(
         primary_key=True, nullable=False, default=user_unique_id, index=True
     )
@@ -93,7 +92,7 @@ class UserProfile(Base):
 
 
 class CompanyProfile(Base):
-    __tablename__ = 'company_profiles'
+    __tablename__ = "company_profiles"
     id: Mapped[str] = mapped_column(
         primary_key=True, nullable=False, default=user_unique_id, index=True
     )
@@ -109,7 +108,7 @@ class CompanyProfile(Base):
 
 
 class PaymentGateway(Base):
-    __tablename__ = 'payment_gateways'
+    __tablename__ = "payment_gateways"
     id: Mapped[str] = mapped_column(
         primary_key=True, nullable=False, default=user_unique_id, index=True
     )

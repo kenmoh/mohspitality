@@ -16,7 +16,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(
         to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
@@ -26,9 +26,10 @@ def create_access_token(data: dict) -> str:
 
 async def create_refresh_token(user_id: str, db: AsyncSession) -> str:
     token = str(uuid.uuid4())
-    expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
-    refresh_token = RefreshToken(token=token, user_id=user_id, expires_at=expires_at)
+    refresh_token = RefreshToken(
+        token=token, user_id=user_id, expires_at=expires_at)
 
     db.add(refresh_token)
     await db.commit()
@@ -36,7 +37,7 @@ async def create_refresh_token(user_id: str, db: AsyncSession) -> str:
     return token
 
 
-async def create_tokens(user_id: int, db: AsyncSession) -> TokenResponse:
+async def create_tokens(user_id: str, db: AsyncSession) -> TokenResponse:
     access_token = create_access_token({"sub": str(user_id)})
     refresh_token = await create_refresh_token(user_id, db)
 

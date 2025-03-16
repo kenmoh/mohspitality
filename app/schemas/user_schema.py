@@ -5,16 +5,44 @@ import re
 
 
 class UserType(str, Enum):
-    COMPANY = 'company'
-    GUEST = 'guest'
-    STAFF = 'staff'
+    COMPANY = "company"
+    GUEST = "guest"
+    STAFF = "staff"
+
+
+class OutletType(str, Enum):
+    RESTAURANT = "restaurant"
+    ROOM_SERVICE = "room_service"
+
+
+class ResourceEnum(str, Enum):
+    USERS = "users"
+    ORDERS = "orders"
+    ITEMS = "items"
+    STOCK = "stocks"
+    PAYMENTS = "payments"
+    LAUNDRY = "laundry"
+
+
+class ActionEnum(str, Enum):
+    CREATE = "create"
+    READ = "read"
+    UPDATE = "update"
+    DELETE = "delete"
+
+
+class SubscriptionType(str, Enum):
+    TRIAL = "trial"
+    BASIC = "basic"
+    PREMIUM = "premium"
+    ENTERPRISE = "enterprise"
 
 
 class PaymentGatwayEnum(str, Enum):
-    FLUTTERWAVE = 'flutterwave'
-    PAYSTACK = 'paystack'
-    STRIPE = 'stripe'
-    PAYPAL = 'payoal'
+    FLUTTERWAVE = "flutterwave"
+    PAYSTACK = "paystack"
+    STRIPE = "stripe"
+    PAYPAL = "payoal"
 
 
 class UserBase(BaseModel):
@@ -54,7 +82,6 @@ class UserLogin(BaseModel):
 
 class UserUpdate(BaseModel):
     email: EmailStr | None = None
-    full_name: str | None = Field(None, min_length=3, max_length=50)
 
 
 class UserUpdatePassword(BaseModel):
@@ -135,4 +162,4 @@ class MessageSchema(BaseModel):
     subject: str
     recipients: list[EmailStr]
     body: str
-    subtype: str = Field(default='html')
+    subtype: str = Field(default="html")

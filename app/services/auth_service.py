@@ -1,17 +1,25 @@
+import uuid
 from fastapi import BackgroundTasks, HTTPException, status
+from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import Optional, Tuple
 from datetime import datetime, timedelta
-import uuid
 from jose import jwt
 from passlib.context import CryptContext
-
-from app.auth.models import User, PasswordReset
-from app.auth.schemas import UserCreate, UserLogin, UserUpdate, UserUpdatePassword
 from app.config import settings
-from app.models.user_models import RefreshToken
-from app.schemas.user_schema import MessageSchema, PasswordResetConfirm, PasswordResetRequest, UserResponse
+from app.models.user_models import PasswordReset, RefreshToken, User
+from app.schemas.user_schema import (
+    MessageSchema,
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    SubscriptionType,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    UserType,
+    UserUpdate,
+    UserUpdatePassword,
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -24,14 +32,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-async def create_user(db: AsyncSession, user_data: UserCreate) -> UserResponse:
+async def create_guest_user(db: AsyncSession, user_data: UserCreate) -> UserResponse:
     """
     Create a new user in the database.
 
     Args:
         db: Database session
         user_data: User data from request
-        created_by_id: ID of the user who is creating this user (optional)
 
     Returns:
         The newly created user
@@ -40,14 +47,14 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> UserResponse:
     email_exists = await db.execute(select(User).where(User.email == user_data.email))
     if email_exists.scalar_one_or_none():
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email already registered"
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
         )
 
     # Create the user
     user = User(
         email=user_data.email,
         password=hash_password(user_data.password),  # Hash password
+        user_type=UserType.GUEST,
         is_active=True,
         is_superuser=False,
     )
@@ -60,8 +67,80 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> UserResponse:
     return UserResponse(**user)
 
 
+async def create_company_user(db: AsyncSession, user_data: UserCreate) -> UserResponse:
+    """
+    Create a new user in the database.
+
+    Args:
+        db: Database session
+        user_data: User data from request
+
+    Returns:
+        The newly created user
+    """
+    # Check if email already exists
+    email_exists = await db.execute(select(User).where(User.email == user_data.email))
+    if email_exists.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
+
+    # Create the user
+    user = User(
+        email=user_data.email,
+        password=hash_password(user_data.password),  # Hash password
+        user_type=UserType.COMPANY,
+        subscription_type=SubscriptionType.TRIAL,
+        is_active=True,
+        is_superuser=False,
+    )
+
+    # Add user to database
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    return UserResponse(**user)
+
+
+async def company_create_staff_user(db: AsyncSession, user_data: UserCreate, current_user: User) -> UserResponse:
+    """
+    Create a new user in the database.
+
+    Args:
+        db: Database session
+        user_data: User data from request
+        company_id: ID of the company who is creating this user
+
+    Returns:
+        The newly created user
+    """
+    # Check if email already exists
+    email_exists = await db.execute(select(User).where(User.email == user_data.email))
+    if email_exists.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
+
+    # Create the user
+    user = User(
+        email=user_data.email,
+        password=hash_password(user_data.password),  # Hash password
+        user_type=UserType.GUEST,
+        company_id=current_user.id,
+        subscription_type=current_user.subscription_type
+    )
+
+    # Add user to database
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    return UserResponse(**user)
+
+
 async def login_user(db: AsyncSession, login_data: UserLogin) -> User:
-    """   
+    """
     Args:
             db: Database session
             login_data: Login credentials
@@ -88,8 +167,8 @@ async def login_user(db: AsyncSession, login_data: UserLogin) -> User:
     return user
 
 
-async def update_user(db: AsyncSession, user_id: str, user_data: UserLogin) -> User:
-    """	
+async def update_user(db: AsyncSession, user_data: UserUpdate, current_user: User) -> User:
+    """
     Args:
             db: Database session
             user_id: ID of the user to update
@@ -99,26 +178,24 @@ async def update_user(db: AsyncSession, user_id: str, user_data: UserLogin) -> U
             Updated user
     """
     # Get the user
-    stmt = select(User).where(User.id == user_id)
+    stmt = select(User).where(User.id == current_user.id)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
     # Update values that are provided
     if user_data.email is not None:
         # Check if email is already taken by another user
         stmt = select(User).where(
-            User.email == user_data.email, User.id != user_id)
+            User.email == user_data.email, User.id != current_user.id)
         result = await db.execute(stmt)
         if result.scalar_one_or_none():
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered"
+                status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
             )
         user.email = user_data.email
 
@@ -129,7 +206,9 @@ async def update_user(db: AsyncSession, user_id: str, user_data: UserLogin) -> U
     return user
 
 
-async def update_password(db: AsyncSession, user_id: str, password_data: UserUpdatePassword) -> User:
+async def update_password(
+    db: AsyncSession, current_user: User, password_data: UserUpdatePassword
+) -> User:
     """
     Args:
             db: Database session
@@ -140,31 +219,31 @@ async def update_password(db: AsyncSession, user_id: str, password_data: UserUpd
             Updated user
     """
     # Get the user
-    stmt = select(User).where(User.id == user_id)
+    stmt = select(User).where(User.id == current_user.id)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
     # Verify current password
     if not verify_password(password_data.current_password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect"
+            detail="Current password is incorrect",
         )
 
     # Hash and set new password
     user.password = hash_password(password_data.new_password)
 
     # Revoke all refresh tokens for this user
-    await db.execute((RefreshToken)
-                     .where(RefreshToken.user_id == user_id, RefreshToken.is_revoked == False)
-                     .values(is_revoked=True)
-                     )
+    await db.execute(
+        (RefreshToken)
+        .where(RefreshToken.user_id == current_user.id, RefreshToken.is_revoked == False)
+        .values(is_revoked=True)
+    )
 
     # Save changes
     await db.commit()
@@ -173,7 +252,9 @@ async def update_password(db: AsyncSession, user_id: str, password_data: UserUpd
     return user
 
 
-async def send_password_reset_email(email: str, reset_token: str, background_tasks: BackgroundTasks):
+async def send_password_reset_email(
+    email: EmailStr, reset_token: str, background_tasks: BackgroundTasks
+):
     """
     Send a password reset email to the user.
     Args:
@@ -198,7 +279,7 @@ async def send_password_reset_email(email: str, reset_token: str, background_tas
 		</body>
 		</html>
 		""",
-        subtype="html"
+        subtype="html",
     )
 
     # Send email in background
@@ -206,7 +287,11 @@ async def send_password_reset_email(email: str, reset_token: str, background_tas
     background_tasks.add_task(fastmail.send_message, message)
 
 
-async def request_password_reset(db: AsyncSession, reset_request: PasswordResetRequest, background_tasks: BackgroundTasks) -> bool:
+async def request_password_reset(
+    db: AsyncSession,
+    reset_request: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
+) -> bool:
     """
     Request a password reset for a user.
     Args:
@@ -228,13 +313,13 @@ async def request_password_reset(db: AsyncSession, reset_request: PasswordResetR
 
     # Generate reset token
     reset_token = str(uuid.uuid4())
-    expires_at = datetime.utcnow() + timedelta(hours=settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS)
+    expires_at = datetime.now() + timedelta(
+        hours=settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS
+    )
 
     # Create password reset record
     password_reset = PasswordReset(
-        token=reset_token,
-        user_id=user.id,
-        expires_at=expires_at
+        token=reset_token, user_id=user.id, expires_at=expires_at
     )
 
     # Add password reset to database
@@ -247,7 +332,9 @@ async def request_password_reset(db: AsyncSession, reset_request: PasswordResetR
     return True
 
 
-async def confirm_password_reset(db: AsyncSession, reset_confirm: PasswordResetConfirm) -> User:
+async def confirm_password_reset(
+    db: AsyncSession, reset_confirm: PasswordResetConfirm
+) -> User:
     """
     Confirm a password reset and change the user's password.
     Args:
@@ -260,8 +347,8 @@ async def confirm_password_reset(db: AsyncSession, reset_confirm: PasswordResetC
     # Find password reset record
     stmt = select(PasswordReset).where(
         PasswordReset.token == reset_confirm.token,
-        PasswordReset.expires_at > datetime.utcnow(),
-        PasswordReset.is_used == False
+        PasswordReset.expires_at > datetime.now(),
+        PasswordReset.is_used == False,
     )
     result = await db.execute(stmt)
     password_reset = result.scalar_one_or_none()
@@ -269,7 +356,7 @@ async def confirm_password_reset(db: AsyncSession, reset_confirm: PasswordResetC
     if not password_reset:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired password reset token"
+            detail="Invalid or expired password reset token",
         )
 
     # Get the user
@@ -279,21 +366,20 @@ async def confirm_password_reset(db: AsyncSession, reset_confirm: PasswordResetC
 
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
     # Mark token as used
     password_reset.is_used = True
 
     # Hash and set new password
-    user.hashed_password = hash_password(reset_confirm.new_password)
+    user.password = hash_password(reset_confirm.new_password)
 
     # Revoke all refresh tokens for this user
     await db.execute(
-        update(RefreshToken)
-            .where(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False)
-            .values(is_revoked=True)
+        (RefreshToken)
+        .where(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False)
+        .values(is_revoked=True)
     )
 
     # Save changes

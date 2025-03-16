@@ -1,0 +1,16 @@
+[project]
+name = "mohospitality"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.15.1",
+    "cryptography>=44.0.2",
+    "fastapi[standard]>=0.115.11",
+    "psycopg2-binary>=2.9.10",
+    "pydantic-settings>=2.8.1",
+    "python-dotenv>=1.0.1",
+    "python-jose[cryptography]>=3.4.0",
+    "sqlalchemy[asyncio]>=2.0.39",
+]

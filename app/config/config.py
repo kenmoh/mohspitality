@@ -1,7 +1,7 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
 import os
+from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
+import redis
 
 load_dotenv()
 
@@ -36,5 +36,20 @@ class Settings(BaseSettings):
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
+    # Redis
+    REDIS_HOST = "localhost"
+    REDIS_PORT = 6379
+    REDIS_DB = 0
+    REDIS_PASSWORD = None  # Set this in production
+
 
 settings = Settings()
+
+# Redis client setup
+redis_client = redis.Redis(
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    db=settings.REDIS_DB,
+    password=settings.REDIS_PASSWORD,
+    decode_responses=True
+)

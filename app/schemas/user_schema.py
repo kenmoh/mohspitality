@@ -116,7 +116,7 @@ class TokenResponse(BaseModel):
 
 
 class UserResponse(UserBase):
-    id: int
+    id: str
     is_active: bool
     is_superuser: bool
     created_at: datetime
@@ -129,3 +129,10 @@ class UserListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class MessageSchema(BaseModel):
+    subject: str
+    recipients: list[EmailStr]
+    body: str
+    subtype: str = Field(default='html')

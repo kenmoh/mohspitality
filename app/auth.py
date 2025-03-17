@@ -6,10 +6,10 @@ from datetime import datetime, timedelta
 from typing import Optional
 import uuid
 
-from app.auth.models import User, RefreshToken
-from app.auth.schemas import TokenResponse
-from app.database import get_db
-from app.config import settings
+from app.models.user_models import User, RefreshToken
+from app.schemas.user_schema import TokenResponse
+from app.database.db import get_db
+from app.config.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 

@@ -88,22 +88,19 @@ class UserUpdatePassword(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8)
 
-    @field_validator("password", mode="before")
-    @classmethod
-    def validate_password(cls, data: str):
-        # Check if password meets requirements
-        if not re.search(r"[A-Z]", data):
-            raise ValueError(
-                "Password must contain at least one uppercase letter")
-        if not re.search(r"[a-z]", data):
-            raise ValueError(
-                "Password must contain at least one lowercase letter")
-        if not re.search(r"\d", data):
-            raise ValueError("Password must contain at least one digit")
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', data):
-            raise ValueError(
-                "Password must contain at least one special character")
-        return data
+    # @field_validator("password", mode="before")
+    # @classmethod
+    # def validate_password(cls, data: str):
+    #     # Check if password meets requirements
+    #     if not re.search(r"[A-Z]", data):
+    #         raise ValueError("Password must contain at least one uppercase letter")
+    #     if not re.search(r"[a-z]", data):
+    #         raise ValueError("Password must contain at least one lowercase letter")
+    #     if not re.search(r"\d", data):
+    #         raise ValueError("Password must contain at least one digit")
+    #     if not re.search(r'[!@#$%^&*(),.?":{}|<>]', data):
+    #         raise ValueError("Password must contain at least one special character")
+    #     return data
 
 
 class PasswordResetRequest(BaseModel):
@@ -114,22 +111,22 @@ class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8)
 
-    @field_validator("password", mode="before")
-    @classmethod
-    def validate_password(cls, data: str):
-        # Check if password meets requirements
-        if not re.search(r"[A-Z]", data):
-            raise ValueError(
-                "Password must contain at least one uppercase letter")
-        if not re.search(r"[a-z]", data):
-            raise ValueError(
-                "Password must contain at least one lowercase letter")
-        if not re.search(r"\d", data):
-            raise ValueError("Password must contain at least one digit")
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', data):
-            raise ValueError(
-                "Password must contain at least one special character")
-        return data
+    # @field_validator("password", mode="before")
+    # @classmethod
+    # def validate_password(cls, data: str):
+    #     # Check if password meets requirements
+    #     if not re.search(r"[A-Z]", data):
+    #         raise ValueError(
+    #             "Password must contain at least one uppercase letter")
+    #     if not re.search(r"[a-z]", data):
+    #         raise ValueError(
+    #             "Password must contain at least one lowercase letter")
+    #     if not re.search(r"\d", data):
+    #         raise ValueError("Password must contain at least one digit")
+    #     if not re.search(r'[!@#$%^&*(),.?":{}|<>]', data):
+    #         raise ValueError(
+    #             "Password must contain at least one special character")
+    #     return data
 
 
 class RefreshTokenRequest(BaseModel):
@@ -147,8 +144,8 @@ class UserResponse(UserBase):
     is_active: bool
     is_superuser: bool
     created_at: datetime
-    updated_at: datetime = None
-    company_id: str = None
+    updated_at: datetime
+    company_id: str | None = None
 
 
 class UserListResponse(BaseModel):

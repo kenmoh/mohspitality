@@ -22,8 +22,8 @@ class Base(AsyncAttrs, DeclarativeBase):
 
 
 async def get_db():
-    db = AsyncSessionLocal()
-    try:
-        yield db
-    finally:
-        await db.close()
+    async with AsyncSessionLocal() as db:  # Use async with to manage the session context
+        try:
+            yield db
+        finally:
+            await db.close()

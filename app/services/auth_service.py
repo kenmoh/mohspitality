@@ -1,12 +1,12 @@
 import uuid
 from fastapi import BackgroundTasks, HTTPException, status
+from fastapi_mail import FastMail
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from datetime import datetime, timedelta
-from jose import jwt
 from passlib.context import CryptContext
-from app.config import settings
+from app.config.config import settings
 from app.models.user_models import PasswordReset, RefreshToken, User
 from app.schemas.user_schema import (
     MessageSchema,
@@ -57,6 +57,8 @@ async def create_guest_user(db: AsyncSession, user_data: UserCreate) -> UserResp
         user_type=UserType.GUEST,
         is_active=True,
         is_superuser=False,
+        subscription_type=None,
+        updated_at=datetime.now()
     )
 
     # Add user to database
@@ -64,7 +66,7 @@ async def create_guest_user(db: AsyncSession, user_data: UserCreate) -> UserResp
     await db.commit()
     await db.refresh(user)
 
-    return UserResponse(**user)
+    return user
 
 
 async def create_company_user(db: AsyncSession, user_data: UserCreate) -> UserResponse:
@@ -93,6 +95,7 @@ async def create_company_user(db: AsyncSession, user_data: UserCreate) -> UserRe
         subscription_type=SubscriptionType.TRIAL,
         is_active=True,
         is_superuser=False,
+        updated_at=datetime.now()
     )
 
     # Add user to database
@@ -100,10 +103,12 @@ async def create_company_user(db: AsyncSession, user_data: UserCreate) -> UserRe
     await db.commit()
     await db.refresh(user)
 
-    return UserResponse(**user)
+    return user
 
 
-async def company_create_staff_user(db: AsyncSession, user_data: UserCreate, current_user: User) -> UserResponse:
+async def company_create_staff_user(
+    db: AsyncSession, user_data: UserCreate, current_user: User
+) -> UserResponse:
     """
     Create a new user in the database.
 
@@ -122,13 +127,16 @@ async def company_create_staff_user(db: AsyncSession, user_data: UserCreate, cur
             status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
         )
 
+    print(current_user.subscription_type)
+
     # Create the user
     user = User(
         email=user_data.email,
         password=hash_password(user_data.password),  # Hash password
-        user_type=UserType.GUEST,
+        user_type=UserType.STAFF,
         company_id=current_user.id,
-        subscription_type=current_user.subscription_type
+        subscription_type=current_user.subscription_type,
+        updated_at=datetime.now()
     )
 
     # Add user to database
@@ -136,7 +144,7 @@ async def company_create_staff_user(db: AsyncSession, user_data: UserCreate, cur
     await db.commit()
     await db.refresh(user)
 
-    return UserResponse(**user)
+    return user
 
 
 async def login_user(db: AsyncSession, login_data: UserLogin) -> User:
@@ -149,7 +157,7 @@ async def login_user(db: AsyncSession, login_data: UserLogin) -> User:
             Authenticated user or None if authentication fails
     """
     # Find user by username
-    stmt = select(User).where(User.username == login_data.username)
+    stmt = select(User).where(User.email == login_data.username)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
@@ -167,7 +175,9 @@ async def login_user(db: AsyncSession, login_data: UserLogin) -> User:
     return user
 
 
-async def update_user(db: AsyncSession, user_data: UserUpdate, current_user: User) -> User:
+async def update_user(
+    db: AsyncSession, user_data: UserUpdate, current_user: User
+) -> User:
     """
     Args:
             db: Database session
@@ -191,7 +201,8 @@ async def update_user(db: AsyncSession, user_data: UserUpdate, current_user: Use
     if user_data.email is not None:
         # Check if email is already taken by another user
         stmt = select(User).where(
-            User.email == user_data.email, User.id != current_user.id)
+            User.email == user_data.email, User.id != current_user.id
+        )
         result = await db.execute(stmt)
         if result.scalar_one_or_none():
             raise HTTPException(
@@ -241,7 +252,9 @@ async def update_password(
     # Revoke all refresh tokens for this user
     await db.execute(
         (RefreshToken)
-        .where(RefreshToken.user_id == current_user.id, RefreshToken.is_revoked == False)
+        .where(
+            RefreshToken.user_id == current_user.id, RefreshToken.is_revoked == False
+        )
         .values(is_revoked=True)
     )
 
@@ -283,7 +296,7 @@ async def send_password_reset_email(
     )
 
     # Send email in background
-    fastmail = FastMail(mail_config)
+    fastmail = FastMail(message)
     background_tasks.add_task(fastmail.send_message, message)
 
 

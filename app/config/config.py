@@ -1,7 +1,7 @@
 import os
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
-# import redis
+import redis
 
 load_dotenv()
 
@@ -46,10 +46,11 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Redis client setup
-# redis_client = redis.Redis(
-#     host=settings.REDIS_HOST,
-#     port=settings.REDIS_PORT,
-#     db=settings.REDIS_DB,
-#     password=settings.REDIS_PASSWORD,
-#     decode_responses=True,
-# )
+
+redis_client = redis.Redis(
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    db=settings.REDIS_DB,
+    password=settings.REDIS_PASSWORD,
+    decode_responses=True,
+)

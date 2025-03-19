@@ -1,4 +1,5 @@
 import datetime
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user_models import Permission, Role, UserProfile, CompanyProfile, User
@@ -12,12 +13,17 @@ from app.schemas.profile_schema import (
     UpdateCompanyPaymentGateway,
     UpdateCompanyProfile,
 )
-from app.schemas.user_schema import ActionEnum, ResourceEnum, StaffRoleCreate
+from app.schemas.user_schema import ActionEnum, AddPermissionsToRole, PermissionResponse, ResourceEnum, RoleCreateResponse, RolePermissionResponse, StaffRoleCreate, UserType
 from app.utils.utils import encrypt_data
 
 
 def generate_permission(action: ActionEnum, resource: ResourceEnum) -> str:
     return f"{action.value}_{resource.value}"
+
+
+async def get_permission_by_name(name: str, db: AsyncSession) -> PermissionResponse:
+    result = await db.execute(select(Permission).where(Permission.name == name))
+    return result.scalar_one_or_none()
 
 
 async def pre_create_permissions(db: AsyncSession):
@@ -43,6 +49,19 @@ async def pre_create_permissions(db: AsyncSession):
         print(f"Added {len(permissions)} new permissions to the database.")
     else:
         print("No new permissions to add.")
+
+
+def has_permission(user: User, required_permission: str) -> bool:
+    return required_permission in user.role.permissions
+
+
+async def check_permission(user: User, action: ActionEnum, resource: ResourceEnum):
+    required_permission = generate_permission(action, resource)
+    if not has_permission(user, required_permission):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Permission denied: {required_permission}",
+        )
 
 
 async def create_company_profile(
@@ -174,11 +193,13 @@ async def update_company_payment_gateway(
     return MessageResponse(**msg)
 
 
-async def create_staff_role(data: StaffRoleCreate, current_user: User, db: AsyncSession):
+async def create_staff_role(data: StaffRoleCreate, current_user: User, db: AsyncSession) -> RoleCreateResponse:
+    if current_user.user_type != UserType.COMPANY:
+        raise Exception('Permission denied! Company admin only')
     try:
         # Create Role
         staff_role = Role(
-            name=data.name,
+            name=data.name.lower(),
             company_id=current_user.id,
             created_at=datetime.datetime.now()
         )
@@ -188,6 +209,61 @@ async def create_staff_role(data: StaffRoleCreate, current_user: User, db: Async
         await db.commit()
         await db.refresh(staff_role)
 
-        return staff_role
+        return {
+            "id": staff_role.id,
+            "name": staff_role.name,
+            "company_id": staff_role.company_id,
+            # "user_permissions": staff_role.user_permissions or []
+        }
+
     except Exception as e:
-        raise e
+        error_detail = str(e)
+        if "UniqueViolationError" in error_detail and "roles_name_key" in error_detail:
+            # Extract the key and value from the error message
+            import re
+            key_match = re.search(r"Key \((\w+)\)=\((\w+)\)", error_detail)
+            if key_match:
+                key, value = key_match.groups()
+                raise Exception(
+                    f"A role with this {key} '{value}' already exists for this company")
+
+
+async def update_role_with_permissions(role_id: int,
+                                       db: AsyncSession, data: AddPermissionsToRole, current_user: User
+                                       ) -> RolePermissionResponse:
+    # Get the profile
+    stmt = select(Role).where(Role.company_id ==
+                              current_user.id, Role.id == role_id)
+    result = await db.execute(stmt)
+    role = result.scalar_one_or_none()
+
+    if not role:
+        raise Exception("No role exists for this company")
+
+    permissions = []
+    for permission in data.permissions:
+        permissions.append(await get_permission_by_name(permission))
+
+    # Update values that are provided
+    role.user_permissions = permissions
+
+    # Save changes
+    await db.commit()
+    await db.refresh(role)
+
+    return role
+
+
+async def get_all_permissions(db: AsyncSession) -> list[PermissionResponse]:
+    result = await db.execute(select(Permission))
+    return result.scalars().all()
+
+
+async def get_company_staff_role(role_id: int, db: AsyncSession, current_user: User) -> RoleCreateResponse:
+    result = await db.execute(select(Role).where(Role.company_id == current_user.id, Role.id == role_id))
+    return result.scalar_one_or_none()
+
+
+async def get_all_company_staff_roles(db: AsyncSession, current_user: User) -> list[RoleCreateResponse]:
+    result = await db.execute(select(Role).where(Role.company_id == current_user.id))
+    return result.scalars().all()

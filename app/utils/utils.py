@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from cryptography.fernet import Fernet
 import requests
 from app.config.config import settings

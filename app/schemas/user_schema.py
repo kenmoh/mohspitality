@@ -175,3 +175,27 @@ class MessageSchema(BaseModel):
 
 class StaffRoleCreate(BaseModel):
     name: str
+
+
+class Permission(BaseModel):
+    name: str
+
+
+class PermissionResponse(Permission):
+    id: int
+    name: str
+    description: str
+
+
+class RolePermissionResponse(PermissionResponse):
+    pass
+
+
+class AddPermissionsToRole(BaseModel):
+    permissions: list[Permission]
+
+
+class RoleCreateResponse(StaffRoleCreate):
+    id: int
+    company_id: str
+    user_permissions: list[RolePermissionResponse | None] = []

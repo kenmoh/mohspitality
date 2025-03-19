@@ -17,10 +17,21 @@ class Settings(BaseSettings):
     )
 
     # JWT settings
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "your-secret-key")
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # Fernet key
+    ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY")
+
+    # FLUTTERWAVE
+    FLW_PUBLIC_KEY: str = os.getenv("FLW_PUBLIC_KEY")
+    FLW_SECRET_KEY: str = os.getenv("FLW_SECRET_KEY")
+
+    # PAYSTACK
+    PSK_SECRET: str = os.getenv("PSK_SECRET")
+    PSK_PUBLIC: str = os.getenv("PSK_PUBLIC")
 
     # Email settings
     MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")

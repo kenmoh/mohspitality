@@ -12,7 +12,6 @@ from app.schemas.user_schema import (
     MessageSchema,
     PasswordResetConfirm,
     PasswordResetRequest,
-    SubscriptionType,
     UserCreate,
     UserLogin,
     UserResponse,
@@ -20,6 +19,8 @@ from app.schemas.user_schema import (
     UserUpdate,
     UserUpdatePassword,
 )
+from app.services.subscription_service import create_staff_subscription
+from app.schemas.subscriptions import SubscriptionType
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -127,8 +128,6 @@ async def company_create_staff_user(
             status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
         )
 
-    print(current_user.subscription_type)
-
     # Create the user
     user = User(
         email=user_data.email,
@@ -143,6 +142,9 @@ async def company_create_staff_user(
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    # Create subscription for the staff user
+    await create_staff_subscription(db=db, staff_user=user, current_user=current_user)
 
     return user
 

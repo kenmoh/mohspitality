@@ -39,3 +39,7 @@ class CreateCompanyProfileResponse(BaseModel):
     phone_number: str
     address: str
     logo_url: str | None = None
+
+
+class MessageResponse(BaseModel):
+    message: str

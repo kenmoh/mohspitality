@@ -4,6 +4,17 @@ from datetime import datetime
 import re
 
 
+class CurencySymbol(str, Enum):
+    NGN = 'NGN'
+    GHS = 'GHS'
+    KES = 'KES'
+    USD = 'USD'
+    GBP = 'GBP'
+    EUR = 'EUR'
+    CAD = 'CAD'
+    AUS = 'AUS'
+
+
 class UserType(str, Enum):
     COMPANY = "company"
     GUEST = "guest"
@@ -22,6 +33,7 @@ class ResourceEnum(str, Enum):
     STOCK = "stocks"
     PAYMENTS = "payments"
     LAUNDRY = "laundry"
+    STORE = "store"
 
 
 class ActionEnum(str, Enum):
@@ -31,18 +43,17 @@ class ActionEnum(str, Enum):
     DELETE = "delete"
 
 
-class SubscriptionType(str, Enum):
-    TRIAL = "trial"
-    BASIC = "basic"
-    PREMIUM = "premium"
-    ENTERPRISE = "enterprise"
-
-
 class PaymentGatwayEnum(str, Enum):
     FLUTTERWAVE = "flutterwave"
     PAYSTACK = "paystack"
     STRIPE = "stripe"
-    PAYPAL = "payoal"
+    PAYPAL = "paypal"
+
+
+class PaymentTypeEnum(str, Enum):
+    CARD = "card"
+    CHARGE_TO_ROOM = "charge_to_room"
+    CASH = "cash"
 
 
 class UserBase(BaseModel):
@@ -160,3 +171,7 @@ class MessageSchema(BaseModel):
     recipients: list[EmailStr]
     body: str
     subtype: str = Field(default="html")
+
+
+class StaffRoleCreate(BaseModel):
+    name: str

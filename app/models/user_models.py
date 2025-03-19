@@ -1,16 +1,18 @@
+from decimal import Decimal
 from random import random
 from typing import Any
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, Dialect
+from sqlalchemy import JSON, DateTime, Dialect
 from sqlalchemy.sql import func
 from app.database.db import Base
 from sqlalchemy import ForeignKey, UniqueConstraint
-from sqlalchemy.dialects.postgresql import CHAR
+from sqlalchemy.dialects.postgresql import CHAR, JSONB
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy.types import TypeDecorator
 
-from app.schemas.user_schema import PaymentGatwayEnum, SubscriptionType, UserType
+from app.schemas.subscriptions import SubscriptionStatus, SubscriptionType
+from app.schemas.user_schema import CurencySymbol, OutletType, PaymentGatwayEnum, UserType
 
 
 class OrderNumber(TypeDecorator):
@@ -74,6 +76,33 @@ class User(Base):
     )
     company = relationship("User", back_populates="staff", remote_side=[id])
     staff = relationship("User", back_populates="company")
+    subscriptions = relationship("Subscription", back_populates="user")
+    role = relationship("Role", back_populates="user")
+    qrcodes = relationship("QRCode", back_populates="user")
+    outlets = relationship("Outlet", back_populates="user")
+    no_post_list = relationship("NoPost", back_populates="user")
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id: Mapped[str] = mapped_column(primary_key=True, nullable=False,
+                                    default=user_unique_id, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    plan_name: Mapped[SubscriptionType] = mapped_column(
+        default=SubscriptionType.TRIAL)
+    amount: Mapped[Decimal] = mapped_column(default=0.00)
+    # e.g., active, canceled
+    status: Mapped[SubscriptionStatus] = mapped_column(
+        default=SubscriptionStatus.ACTIVE)
+    payment_link: Mapped[str] = mapped_column(nullable=True)
+    # You might want to use Date or DateTime
+    start_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+    # You might want to use Date or DateTime
+    end_date: Mapped[datetime] = mapped_column()
+
+    user = relationship("User", back_populates="subscriptions")
 
 
 class UserProfile(Base):
@@ -103,11 +132,101 @@ class CompanyProfile(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     logo_url: Mapped[str] = mapped_column(nullable=True)
+    currency_symbol: Mapped[CurencySymbol] = mapped_column(
+        nullable=True, default=CurencySymbol.NGN)
     user = relationship("User", back_populates="company_profile")
 
     api_key: Mapped[str] = mapped_column(unique=True)
     api_secret: Mapped[str] = mapped_column(unique=True)
     payment_gateway: Mapped[PaymentGatwayEnum] = mapped_column()
+
+
+class Role(Base):
+    __tablename__ = "roles"
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, index=True, autoincrement=True
+    )
+
+    name: Mapped[str] = mapped_column(unique=True)
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    user_permissions: Mapped[list[str]
+                             ] = mapped_column(JSON, default=list)
+    user = relationship("User", back_populates="role")
+
+    __table_args__ = (
+        UniqueConstraint("name", "company_id", name="role_name"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, index=True, autoincrement=True
+    )
+
+    name: Mapped[str] = mapped_column(unique=True)
+    description: Mapped[str] = mapped_column()
+
+
+class NoPost(Base):
+    __tablename__ = "no_post_list"
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, index=True, autoincrement=True
+    )
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+    no_post_list: Mapped[str]
+    user = relationship("User", back_populates="no_post_list")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Outlet(Base):
+    __tablename__ = "outlets"
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, index=True
+    )
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+    name: Mapped[str]
+    user = relationship("User", back_populates="outlets")
+
+    __table_args__ = (
+        UniqueConstraint("name", "company_id", name="outlet_name"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class QRCode(Base):
+    __tablename__ = "qrcodes"
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, index=True
+    )
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+    room_or_table_numbers: Mapped[str]
+    fill_color: Mapped[str] = mapped_column(nullable=True)
+    back_color: Mapped[str] = mapped_column(nullable=True)
+    outlet_type: Mapped[OutletType]
+    user = relationship("User", back_populates="qrcodes")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class RefreshToken(Base):

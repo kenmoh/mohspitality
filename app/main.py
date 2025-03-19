@@ -8,12 +8,14 @@ from app.database.db import AsyncSessionLocal
 from app.config.config import redis_client
 
 from app.routers import auth_router, user_router
+from app.services.profile_service import pre_create_permissions
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     db = AsyncSessionLocal()
     try:
+        await pre_create_permissions(db)
         yield {"db": db, 'redis': redis_client}
     finally:
         await db.close()

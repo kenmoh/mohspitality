@@ -21,9 +21,15 @@ def generate_permission(action: ActionEnum, resource: ResourceEnum) -> str:
     return f"{action.value}_{resource.value}"
 
 
-async def get_permission_by_name(name: str, db: AsyncSession) -> PermissionResponse:
+async def get_permission_by_name(name: str, db: AsyncSession):
     result = await db.execute(select(Permission).where(Permission.name == name))
-    return result.scalar_one_or_none()
+    permission = result.scalar_one_or_none()
+    permission_dict = {
+        'id': permission.id,
+        'name': permission.name,
+        'description': permission.description
+    }
+    return permission_dict
 
 
 async def pre_create_permissions(db: AsyncSession):
@@ -52,16 +58,49 @@ async def pre_create_permissions(db: AsyncSession):
 
 
 def has_permission(user: User, required_permission: str) -> bool:
-    return required_permission in user.role.permissions
+    # Fetch the user's role and permissions
+    if not user.role:
+        return False
+    return required_permission in user.role.user_permissions
 
 
-async def check_permission(user: User, action: ActionEnum, resource: ResourceEnum):
-    required_permission = generate_permission(action, resource)
+async def check_permission(user: User, required_permission: str):
     if not has_permission(user, required_permission):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Permission denied: {required_permission}",
         )
+
+
+async def assign_role_to_user(
+    user_id: str,
+    role_id: int,
+    db: AsyncSession
+) -> MessageResponse:
+
+    # Fetch the user
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Fetch the role
+    role = await db.get(Role, role_id)
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+
+    # Assign the role to the user
+    user.role_id = role_id
+    await db.commit()
+
+    return {"message": "Role assigned to user"}
+
+# async def check_permission(user: User, action: ActionEnum, resource: ResourceEnum):
+#     required_permission = generate_permission(action, resource)
+#     if not has_permission(user, required_permission):
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail=f"Permission denied: {required_permission}",
+#         )
 
 
 async def create_company_profile(
@@ -242,7 +281,9 @@ async def update_role_with_permissions(role_id: int,
 
     permissions = []
     for permission in data.permissions:
-        permissions.append(await get_permission_by_name(permission))
+        permissions.append(await get_permission_by_name(name=permission, db=db))
+        print(await get_permission_by_name(name=permission, db=db), '==========================')
+        print(permission, '=======================')
 
     # Update values that are provided
     role.user_permissions = permissions

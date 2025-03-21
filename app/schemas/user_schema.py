@@ -157,6 +157,8 @@ class UserResponse(UserBase):
     created_at: datetime
     updated_at: datetime
     company_id: str | None = None
+    role_id: int | None = None
+    role: str | None = None
 
 
 class UserListResponse(BaseModel):
@@ -192,10 +194,10 @@ class RolePermissionResponse(PermissionResponse):
 
 
 class AddPermissionsToRole(BaseModel):
-    permissions: list[Permission]
+    permissions: list[str]
 
 
 class RoleCreateResponse(StaffRoleCreate):
     id: int
     company_id: str
-    user_permissions: list[RolePermissionResponse | None] = []
+    user_permissions: list[str | None] = []

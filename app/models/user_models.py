@@ -58,6 +58,8 @@ class User(Base):
         DateTime(timezone=True), onupdate=func.now()
     )
 
+    role_id: Mapped[int] = mapped_column(ForeignKey(
+        "roles.id", ondelete="SET NULL"), nullable=True)
     # Company who created this staff (if applicable)
     company_id: Mapped[str] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -77,8 +79,13 @@ class User(Base):
     company = relationship("User", back_populates="staff", remote_side=[id])
     staff = relationship("User", back_populates="company")
     subscriptions = relationship("Subscription", back_populates="user")
-    role = relationship("Role", back_populates="user")
+    # role = relationship("Role", back_populates="user")
+    role = relationship("Role", back_populates="users", foreign_keys=[role_id])
+    company_roles = relationship(
+        "Role", back_populates="company", primaryjoin="User.id==Role.company_id")
+
     qrcodes = relationship("QRCode", back_populates="user")
+    departments = relationship("Department", back_populates="user")
     outlets = relationship("Outlet", back_populates="user")
     no_post_list = relationship("NoPost", back_populates="user")
 
@@ -153,7 +160,13 @@ class Role(Base):
     )
     user_permissions: Mapped[list[str]
                              ] = mapped_column(JSON, default=list)
-    user = relationship("User", back_populates="role")
+    # user = relationship("User", back_populates="role")
+    company = relationship(
+        "User", back_populates="company_roles", foreign_keys=[company_id])
+    # users = relationship("User", back_populates="role",
+    #                      primaryjoin="User.id==Role.role_id")
+    users = relationship("User", back_populates="role",
+                         foreign_keys=[User.role_id])
 
     __table_args__ = (
         UniqueConstraint("name", "company_id", name="role_name"),
@@ -171,6 +184,35 @@ class Permission(Base):
 
     name: Mapped[str] = mapped_column(unique=True)
     description: Mapped[str] = mapped_column()
+
+
+class Department(Base):
+    __tablename__ = "departments"
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, index=True, autoincrement=True
+    )
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+    name: Mapped[str] = mapped_column(unique=True)
+    user = relationship("User", back_populates="departments")
+    __table_args__ = (
+        UniqueConstraint("name", "company_id", name="department_name"),
+    )
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, index=True, autoincrement=True
+    )
+    company_id: Mapped[str]
+
+    message: Mapped[str] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class NoPost(Base):

@@ -22,7 +22,7 @@ async def lifespan(application: FastAPI):
 
 
 app = FastAPI(
-    title="MOHospitality",
+    title="MOHspitality",
     docs_url="/",
     lifespan=lifespan,
     description="Complete hospitality solutions",

@@ -14,6 +14,7 @@ from app.schemas.user_schema import (
     PasswordResetRequest,
     StaffUserCreate,
     UserCreate,
+
     UserLogin,
     UserResponse,
     UserType,
@@ -33,6 +34,81 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
+
+
+async def create_super_admin_user(db: AsyncSession, user_data: UserCreate) -> UserResponse:
+    """
+    Create a new admin user in the database.
+
+    Args:
+        db: Database session
+        user_data: User data from request
+
+    Returns:
+        The newly created user
+    """
+    # Check if email already exists
+    email_exists = await db.execute(select(User).where(User.email == user_data.email))
+    if email_exists.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
+
+    # Create the user
+    user = User(
+        email=user_data.email,
+        password=hash_password(user_data.password),  # Hash password
+        user_type=UserType.COMPANY,
+        is_active=True,
+        is_superuser=True,
+        subscription_type=None,
+        updated_at=datetime.now()
+    )
+
+    # Add user to database
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    return user
+
+
+async def create_admin_user(db: AsyncSession, user_data: UserCreate, current_user: User) -> UserResponse:
+    """
+    Create a new admin user in the database.
+
+    Args:
+        db: Database session
+        user_data: User data from request
+
+    Returns:
+        The newly created user
+    """
+    # Check if email already exists
+    email_exists = await db.execute(select(User).where(User.email == user_data.email))
+    if email_exists.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
+        )
+
+    # Create the user
+    user = User(
+        email=user_data.email,
+        password=hash_password(user_data.password),  # Hash password
+        user_type=UserType.SALES,
+        company_id=current_user.id,
+        is_active=True,
+        is_superuser=False,
+        subscription_type=None,
+        updated_at=datetime.now()
+    )
+
+    # Add user to database
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    return user
 
 
 async def create_guest_user(db: AsyncSession, user_data: UserCreate) -> UserResponse:

@@ -19,6 +19,9 @@ class UserType(str, Enum):
     COMPANY = "company"
     GUEST = "guest"
     STAFF = "staff"
+    SALES = "sales"
+    DEVELOPERS = "developers"
+    SUPER_ADMIN = "super-admin"
 
 
 class OutletType(str, Enum):
@@ -85,11 +88,6 @@ class UserCreate(UserBase):
 
 class StaffUserCreate(UserCreate):
     role_name: str
-
-
-class UserCreateByAdmin(UserCreate):
-    is_active: bool = True
-    is_superuser: bool = False
 
 
 class UserLogin(BaseModel):

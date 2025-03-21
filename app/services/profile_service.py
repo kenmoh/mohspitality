@@ -52,6 +52,7 @@ async def setup_company_roles(db: AsyncSession):
 
     # Create the role
     company_role = Role(
+        company_id='88153ffc066511f09f975bcc15c457cb',
         name='company-admin',
         user_permissions=action_resource_list
     )
@@ -267,12 +268,14 @@ async def create_staff_role(data: StaffRoleCreate, current_user: User, db: Async
             "id": staff_role.id,
             "name": staff_role.name,
             "company_id": staff_role.company_id,
-            # "user_permissions": staff_role.user_permissions or []
+
         }
 
     except Exception as e:
+        print(e, '=======================================')
         error_detail = str(e)
-        if "UniqueViolationError" in error_detail and "roles_name_key" in error_detail:
+
+        if "UniqueViolationError" in error_detail and "role_name" in error_detail:
             # Extract the key and value from the error message
             import re
             key_match = re.search(r"Key \((\w+)\)=\((\w+)\)", error_detail)

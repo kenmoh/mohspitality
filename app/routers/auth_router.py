@@ -11,6 +11,7 @@ from app.schemas.user_schema import (
     StaffUserCreate,
     TokenResponse,
     UserCreate,
+
     UserResponse,
     UserUpdate,
     UserUpdatePassword,
@@ -66,6 +67,37 @@ async def register_user(
 ) -> UserResponse:
     try:
         return await auth_service.company_create_staff_user(
+            user_data=user_data, db=db, current_user=current_user
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/register-super-admin", status_code=status.HTTP_201_CREATED)
+async def register_user(
+    user_data: UserCreate,
+    db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    try:
+        return await auth_service.create_super_admin_user(
+            user_data=user_data, db=db
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/register-admin-staff", status_code=status.HTTP_201_CREATED)
+async def register_admin_user(
+    user_data: UserCreate,
+    current_user: User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserResponse:
+    try:
+        return await auth_service.create_admin_user(
             user_data=user_data, db=db, current_user=current_user
         )
 

@@ -12,6 +12,7 @@ from app.schemas.user_schema import (
     MessageSchema,
     PasswordResetConfirm,
     PasswordResetRequest,
+    StaffUserCreate,
     UserCreate,
     UserLogin,
     UserResponse,
@@ -19,6 +20,7 @@ from app.schemas.user_schema import (
     UserUpdate,
     UserUpdatePassword,
 )
+from app.services.profile_service import get_role_by_name
 from app.services.subscription_service import create_staff_subscription
 from app.schemas.subscriptions import SubscriptionType
 
@@ -108,7 +110,7 @@ async def create_company_user(db: AsyncSession, user_data: UserCreate) -> UserRe
 
 
 async def company_create_staff_user(
-    db: AsyncSession, user_data: UserCreate, current_user: User
+    db: AsyncSession, user_data: StaffUserCreate, current_user: User
 ) -> UserResponse:
     """
     Create a new user in the database.
@@ -128,6 +130,9 @@ async def company_create_staff_user(
             status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
         )
 
+    # Get company role by name
+    role = await get_role_by_name(role_name=user_data.role_name, current_user=current_user, db=db)
+
     # Create the user
     user = User(
         email=user_data.email,
@@ -135,6 +140,7 @@ async def company_create_staff_user(
         user_type=UserType.STAFF,
         company_id=current_user.id,
         subscription_type=current_user.subscription_type,
+        role_id=role.id,
         updated_at=datetime.now()
     )
 

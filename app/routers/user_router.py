@@ -13,7 +13,7 @@ from app.schemas.profile_schema import (
     UpdateCompanyPaymentGateway,
     UpdateCompanyProfile,
 )
-from app.schemas.user_schema import AddPermissionsToRole, PermissionResponse, RoleCreateResponse, StaffRoleCreate
+from app.schemas.user_schema import AddPermissionsToRole, AssignRoleToStaff, PermissionResponse, RoleCreateResponse, StaffRoleCreate
 from app.services import profile_service
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
@@ -116,6 +116,21 @@ async def update_role_permission(
 ) -> RoleCreateResponse:
     try:
         return await profile_service.update_role_with_permissions(role_id=role_id, data=data, db=db, current_user=current_user)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.put("/assign-role-to-staff", status_code=status.HTTP_202_ACCEPTED)
+async def assign_role_to_staff(
+    user_id: str,
+    data: AssignRoleToStaff,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+
+) -> RoleCreateResponse:
+    try:
+        return await profile_service.assign_role_to_user(user_id=user_id, data=data, db=db, current_user=current_user)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

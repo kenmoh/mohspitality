@@ -13,7 +13,7 @@ from app.schemas.profile_schema import (
     UpdateCompanyPaymentGateway,
     UpdateCompanyProfile,
 )
-from app.schemas.user_schema import ActionEnum, AddPermissionsToRole, PermissionResponse, ResourceEnum, RoleCreateResponse, RolePermissionResponse, StaffRoleCreate, UserType
+from app.schemas.user_schema import ActionEnum, AddPermissionsToRole, AssignRoleToStaff, PermissionResponse, ResourceEnum, RoleCreateResponse, RolePermissionResponse, StaffRoleCreate, UserType
 from app.utils.utils import encrypt_data
 
 
@@ -72,35 +72,11 @@ async def check_permission(user: User, required_permission: str):
         )
 
 
-async def assign_role_to_user(
-    user_id: str,
-    role_id: int,
-    db: AsyncSession
-) -> MessageResponse:
-
-    # Fetch the user
-    user = await db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Fetch the role
-    role = await db.get(Role, role_id)
-    if not role:
-        raise HTTPException(status_code=404, detail="Role not found")
-
-    # Assign the role to the user
-    user.role_id = role_id
-    await db.commit()
-
-    return {"message": "Role assigned to user"}
-
-# async def check_permission(user: User, action: ActionEnum, resource: ResourceEnum):
-#     required_permission = generate_permission(action, resource)
-#     if not has_permission(user, required_permission):
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail=f"Permission denied: {required_permission}",
-#         )
+async def get_role_by_name(role_name: str, current_user: User, db: AsyncSession):
+    stmt = select(Role).where((Role.name == role_name) &
+                              (Role.company_id == current_user.id))
+    role = await db.execute(stmt)
+    return role.scalar_one_or_none()
 
 
 async def create_company_profile(

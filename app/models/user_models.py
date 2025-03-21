@@ -160,11 +160,8 @@ class Role(Base):
     )
     user_permissions: Mapped[list[str]
                              ] = mapped_column(JSON, default=list)
-    # user = relationship("User", back_populates="role")
     company = relationship(
         "User", back_populates="company_roles", foreign_keys=[company_id])
-    # users = relationship("User", back_populates="role",
-    #                      primaryjoin="User.id==Role.role_id")
     users = relationship("User", back_populates="role",
                          foreign_keys=[User.role_id])
 

@@ -8,6 +8,7 @@ from app.models.user_models import User
 from app.schemas.user_schema import (
     PasswordResetConfirm,
     PasswordResetRequest,
+    StaffUserCreate,
     TokenResponse,
     UserCreate,
     UserResponse,
@@ -59,7 +60,7 @@ async def register_user(
 
 @router.post("/register-staff", status_code=status.HTTP_201_CREATED)
 async def register_user(
-    user_data: UserCreate,
+    user_data: StaffUserCreate,
     current_user: User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:

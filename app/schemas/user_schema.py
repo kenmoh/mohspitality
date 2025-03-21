@@ -81,6 +81,10 @@ class UserCreate(UserBase):
         return data
 
 
+class StaffUserCreate(UserCreate):
+    role_name: str
+
+
 class UserCreateByAdmin(UserCreate):
     is_active: bool = True
     is_superuser: bool = False
@@ -200,4 +204,8 @@ class AddPermissionsToRole(BaseModel):
 class RoleCreateResponse(StaffRoleCreate):
     id: int
     company_id: str
-    user_permissions: list[str | None] = []
+    user_permissions: list[PermissionResponse | None] = []
+
+
+class AssignRoleToStaff(BaseModel):
+    name: str

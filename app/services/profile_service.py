@@ -13,7 +13,7 @@ from app.schemas.profile_schema import (
     UpdateCompanyPaymentGateway,
     UpdateCompanyProfile,
 )
-from app.schemas.user_schema import ActionEnum, AddPermissionsToRole, AssignRoleToStaff, PermissionResponse, ResourceEnum, RoleCreateResponse, RolePermissionResponse, StaffRoleCreate, UserType
+from app.schemas.user_schema import ActionEnum, AddPermissionsToRole, PermissionResponse, ResourceEnum, RoleCreateResponse, RolePermissionResponse, StaffRoleCreate, UserType
 from app.utils.utils import encrypt_data
 
 
@@ -32,6 +32,37 @@ async def get_permission_by_name(name: str, db: AsyncSession):
     return permission_dict
 
 
+async def setup_company_roles(db: AsyncSession):
+    """
+    Set up default roles and permissions for a newly created company.
+
+    Args:
+        db: Database session
+        company_user: The company user for which to create roles
+
+    Returns:
+        List of created roles
+    """
+
+    action_resource_list = [
+        f"{action.value}_{resource.value}"
+        for action in ActionEnum
+        for resource in ResourceEnum
+    ]
+
+    # Create the role
+    company_role = Role(
+        name='company-admin',
+        user_permissions=action_resource_list
+    )
+
+    db.add(company_role)
+    await db.commit()
+    await db.refresh(company_role)
+
+    return company_role
+
+
 async def pre_create_permissions(db: AsyncSession):
     # Fetch existing permissions from the database
     result = await db.execute(select(Permission.name))
@@ -44,7 +75,7 @@ async def pre_create_permissions(db: AsyncSession):
             if permission_name not in existing_permissions:  # Check if permission already exists
                 permissions.append({
                     "name": permission_name,
-                    "description": f"Allows {action.value}ing {resource.value}",
+                    "description": f"{action.value} {resource.value}",
                 })
 
     # Add new permissions to the database
@@ -59,9 +90,11 @@ async def pre_create_permissions(db: AsyncSession):
 
 def has_permission(user: User, required_permission: str) -> bool:
     # Fetch the user's role and permissions
-    if not user.role:
+    if not user.role or not user.role.user_permissions:
         return False
-    return required_permission in user.role.user_permissions
+
+    # Check if the required_permission matches any permission name in the list
+    return any(perm.get("name") == required_permission for perm in user.role.user_permissions)
 
 
 async def check_permission(user: User, required_permission: str):
@@ -72,11 +105,17 @@ async def check_permission(user: User, required_permission: str):
         )
 
 
-async def get_role_by_name(role_name: str, current_user: User, db: AsyncSession):
-    stmt = select(Role).where((Role.name == role_name) &
-                              (Role.company_id == current_user.id))
-    role = await db.execute(stmt)
-    return role.scalar_one_or_none()
+async def get_role_by_name(role_name: str,  db: AsyncSession, current_user: User | None = None):
+
+    if current_user:
+        stmt = select(Role).where((Role.name == role_name) &
+                                  (Role.company_id == current_user.id))
+        role = await db.execute(stmt)
+        return role.scalar_one_or_none()
+    else:
+        stmt = select(Role).where(Role.name == role_name)
+        role = await db.execute(stmt)
+        return role.scalar_one_or_none()
 
 
 async def create_company_profile(
@@ -258,9 +297,6 @@ async def update_role_with_permissions(role_id: int,
     permissions = []
     for permission in data.permissions:
         permissions.append(await get_permission_by_name(name=permission, db=db))
-        print(await get_permission_by_name(name=permission, db=db), '==========================')
-        print(permission, '=======================')
-
     # Update values that are provided
     role.user_permissions = permissions
 

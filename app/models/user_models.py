@@ -156,7 +156,7 @@ class Role(Base):
 
     name: Mapped[str] = mapped_column(unique=True)
     company_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
     user_permissions: Mapped[list[str]
                              ] = mapped_column(JSON, default=list)

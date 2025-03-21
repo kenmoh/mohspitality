@@ -34,6 +34,8 @@ class ResourceEnum(str, Enum):
     PAYMENTS = "payments"
     LAUNDRY = "laundry"
     STORE = "store"
+    PERMISSIONS = 'permissions'
+    DEPARTMENTS = 'departments'
 
 
 class ActionEnum(str, Enum):
@@ -162,7 +164,7 @@ class UserResponse(UserBase):
     updated_at: datetime
     company_id: str | None = None
     role_id: int | None = None
-    role: str | None = None
+    # role: str | None = None
 
 
 class UserListResponse(BaseModel):

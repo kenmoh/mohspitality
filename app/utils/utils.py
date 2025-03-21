@@ -42,3 +42,10 @@ def get_subscription_payment_link(subscription: Subscription, current_user: User
     link = response_data["data"]["link"]
 
     return link
+
+
+# action_resource_list = [
+#     f"{action.value}_{resource.value}"
+#     for action in ActionEnum
+#     for resource in ResourceEnum
+# ]

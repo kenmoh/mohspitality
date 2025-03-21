@@ -20,7 +20,7 @@ from app.schemas.user_schema import (
     UserUpdate,
     UserUpdatePassword,
 )
-from app.services.profile_service import get_role_by_name
+from app.services.profile_service import check_permission, get_role_by_name
 from app.services.subscription_service import create_staff_subscription
 from app.schemas.subscriptions import SubscriptionType
 
@@ -89,7 +89,8 @@ async def create_company_user(db: AsyncSession, user_data: UserCreate) -> UserRe
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
         )
-
+    # Get company role by name
+    role = await get_role_by_name(role_name='company-admin', db=db)
     # Create the user
     user = User(
         email=user_data.email,
@@ -98,6 +99,7 @@ async def create_company_user(db: AsyncSession, user_data: UserCreate) -> UserRe
         subscription_type=SubscriptionType.TRIAL,
         is_active=True,
         is_superuser=False,
+        role_id=role.id,
         updated_at=datetime.now()
     )
 
@@ -123,6 +125,9 @@ async def company_create_staff_user(
     Returns:
         The newly created user
     """
+    # check user permission
+    check_permission(user=current_user, required_permission='create_users')
+
     # Check if email already exists
     email_exists = await db.execute(select(User).where(User.email == user_data.email))
     if email_exists.scalar_one_or_none():

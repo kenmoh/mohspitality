@@ -11,8 +11,9 @@ from sqlalchemy.dialects.postgresql import CHAR, JSONB
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy.types import TypeDecorator
 
+from app.schemas.room_schema import OutletType
 from app.schemas.subscriptions import SubscriptionStatus, SubscriptionType
-from app.schemas.user_schema import CurencySymbol, OutletType, PaymentGatwayEnum, UserType
+from app.schemas.user_schema import CurencySymbol, PaymentGatwayEnum, UserType
 
 
 class OrderNumber(TypeDecorator):
@@ -192,7 +193,7 @@ class Department(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
-    name: Mapped[str] = mapped_column(unique=True)
+    name: Mapped[str] = mapped_column(unique=False)
     user = relationship("User", back_populates="departments")
     __table_args__ = (
         UniqueConstraint("name", "company_id", name="department_name"),
@@ -226,6 +227,9 @@ class NoPost(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+    update_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
     )
 
 

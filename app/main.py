@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from app.database.db import AsyncSessionLocal
 from app.config.config import redis_client
 
-from app.routers import auth_router, user_router
+from app.routers import auth_router, qrcode_router, user_router
 from app.services.profile_service import pre_create_permissions, setup_company_roles
 
 
@@ -37,3 +37,4 @@ app.add_middleware(SlowAPIMiddleware)
 
 app.include_router(auth_router.router)
 app.include_router(user_router.router)
+app.include_router(qrcode_router.router)

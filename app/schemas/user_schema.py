@@ -24,11 +24,6 @@ class UserType(str, Enum):
     SUPER_ADMIN = "super-admin"
 
 
-class OutletType(str, Enum):
-    RESTAURANT = "restaurant"
-    ROOM_SERVICE = "room_service"
-
-
 class ResourceEnum(str, Enum):
     USERS = "users"
     ORDERS = "orders"
@@ -39,6 +34,7 @@ class ResourceEnum(str, Enum):
     STORE = "store"
     PERMISSIONS = 'permissions'
     DEPARTMENTS = 'departments'
+    OUTLETS = 'outlets'
 
 
 class ActionEnum(str, Enum):
@@ -183,8 +179,24 @@ class StaffRoleCreate(BaseModel):
     name: str
 
 
+class DepartmentCreate(BaseModel):
+    name: str
+
+
+class DepartmentResponse(DepartmentCreate):
+    id: int
+
+
 class Permission(BaseModel):
     name: str
+
+
+class NoPostCreate(BaseModel):
+    name: str
+
+
+class NoPostResponse(NoPostCreate):
+    company_id: str
 
 
 class PermissionResponse(Permission):

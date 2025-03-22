@@ -13,7 +13,8 @@ from app.schemas.profile_schema import (
     UpdateCompanyPaymentGateway,
     UpdateCompanyProfile,
 )
-from app.schemas.user_schema import AddPermissionsToRole, AssignRoleToStaff, PermissionResponse, RoleCreateResponse, StaffRoleCreate
+from app.schemas.room_schema import NoPostCreate, NoPostResponse
+from app.schemas.user_schema import AddPermissionsToRole, AssignRoleToStaff, DepartmentCreate, DepartmentResponse, PermissionResponse, RoleCreateResponse, StaffRoleCreate
 from app.services import profile_service
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
@@ -177,3 +178,133 @@ async def update_company_payment_gateway(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+# ============== DEPARTMENT =================
+
+
+@router.post("/company-create-department", status_code=status.HTTP_201_CREATED)
+async def create_company_department(
+    data: DepartmentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DepartmentResponse:
+
+    try:
+        return await profile_service.create_department(
+            db=db, data=data, current_user=current_user
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
+@router.delete("/{department_id}/company-delete-department", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_company_department(
+    department_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    try:
+        return await profile_service.delete_company_department(
+            db=db,  current_user=current_user, department_id=department_id
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/company-departments", status_code=status.HTTP_200_OK)
+async def get_company_department(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[DepartmentResponse]:
+
+    try:
+        return await profile_service.get_company_departments(
+            db=db,  current_user=current_user,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+# ============== No POST =================
+
+
+@router.post("/company-create-no-post-list", status_code=status.HTTP_201_CREATED)
+async def create_company_no_post_list(
+    data: NoPostCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> NoPostResponse:
+
+    try:
+        return await profile_service.create_no_post_list(
+            db=db, data=data, current_user=current_user
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/company-no-post-list", status_code=status.HTTP_200_OK)
+async def get_company_no_post_listt(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[DepartmentResponse]:
+
+    try:
+        return await profile_service.get_company_no_post_list(
+            db=db,  current_user=current_user,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+# ============== OUTLET =================
+@router.post("/company-create-outlet", status_code=status.HTTP_201_CREATED)
+async def create_company_outlet(
+    data: DepartmentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DepartmentResponse:
+
+    try:
+        return await profile_service.create_outlet(
+            db=db, data=data, current_user=current_user
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
+@router.delete("/{outlet_id}/company-delete-outlet", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_company_outlet(
+    outlet_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+
+    try:
+        return await profile_service.delete_company_outlet(
+            db=db,  current_user=current_user, outlet_id=outlet_id
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/company-outlets", status_code=status.HTTP_200_OK)
+async def get_company_outlets(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[DepartmentResponse]:
+
+    try:
+        return await profile_service.get_company_outlets(
+            db=db,  current_user=current_user,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

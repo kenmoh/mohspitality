@@ -1,8 +1,9 @@
 import datetime
+import re
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.user_models import Permission, Role, UserProfile, CompanyProfile, User
+from app.models.user_models import Department, NoPost, Outlet, Permission, Role, UserProfile, CompanyProfile, User
 
 from app.schemas.profile_schema import (
     CreateCompanyProfile,
@@ -13,7 +14,8 @@ from app.schemas.profile_schema import (
     UpdateCompanyPaymentGateway,
     UpdateCompanyProfile,
 )
-from app.schemas.user_schema import ActionEnum, AddPermissionsToRole, PermissionResponse, ResourceEnum, RoleCreateResponse, RolePermissionResponse, StaffRoleCreate, UserType
+from app.schemas.room_schema import NoPostCreate, NoPostResponse
+from app.schemas.user_schema import ActionEnum, AddPermissionsToRole, DepartmentCreate, DepartmentResponse, PermissionResponse, ResourceEnum, RoleCreateResponse, RolePermissionResponse, StaffRoleCreate, UserType
 from app.utils.utils import encrypt_data
 
 
@@ -272,12 +274,10 @@ async def create_staff_role(data: StaffRoleCreate, current_user: User, db: Async
         }
 
     except Exception as e:
-        print(e, '=======================================')
         error_detail = str(e)
 
         if "UniqueViolationError" in error_detail and "role_name" in error_detail:
             # Extract the key and value from the error message
-            import re
             key_match = re.search(r"Key \((\w+)\)=\((\w+)\)", error_detail)
             if key_match:
                 key, value = key_match.groups()
@@ -323,3 +323,181 @@ async def get_company_staff_role(role_id: int, db: AsyncSession, current_user: U
 async def get_all_company_staff_roles(db: AsyncSession, current_user: User) -> list[RoleCreateResponse]:
     result = await db.execute(select(Role).where(Role.company_id == current_user.id))
     return result.scalars().all()
+
+
+async def create_department(current_user: User, data: DepartmentCreate, db: AsyncSession):
+    await check_permission(current_user, required_permission='create_departments')
+
+    try:
+        # Create Role
+        department = Department(
+            name=data.name.lower(),
+            company_id=current_user.id,
+        )
+
+        # Add role to database
+        db.add(department)
+        await db.commit()
+        await db.refresh(department)
+
+        return department
+
+    except Exception as e:
+        error_detail = str(e)
+
+        if "department_name" in error_detail:
+            # Extract the key and value from the error message
+            key_match = re.search(r"Key \((\w+)\)=\((\w+)\)", error_detail)
+            if key_match:
+                key, value = key_match.groups()
+                raise Exception(
+                    f"A department with this {key} '{value}' already exists for this company")
+
+
+async def get_company_departments(current_user: User, db: AsyncSession) -> list[DepartmentResponse]:
+
+    company_id = current_user.id if current_user.user_type == UserType.COMPANY else current_user.company_id
+    stmt = select(Department).where(Department.company_id == company_id)
+    result = await db.execute(stmt)
+    departments = result.all()
+
+    return departments
+
+
+async def delete_company_department(department_id: int, current_user: User, db: AsyncSession) -> None:
+    # Check permission
+    await check_permission(current_user, required_permission='delete_departments')
+
+    # Determine company ID
+    company_id = current_user.id if current_user.user_type == UserType.COMPANY else current_user.company_id
+
+    # Find the department
+    stmt = select(Department).where(
+        (Department.company_id == company_id) &
+        (Department.id == department_id)
+    )
+    result = await db.execute(stmt)
+    department = result.scalar_one_or_none()
+
+    # Check if department exists
+    if not department:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Department with ID {department_id} not found"
+        )
+
+    # Delete the department
+    await db.delete(department)
+    await db.commit()
+
+    return None
+
+
+async def create_no_post_list(data: NoPostCreate, current_user: User, db: AsyncSession) -> NoPostResponse:
+
+    company_id = current_user.id if current_user.user_type == UserType.COMPANY else current_user.company_id
+    no_post_list = NoPost(
+        no_post_list=data.name.lower(),
+        company_id=company_id,
+    )
+
+    stmt = select(NoPost).where(NoPost.company_id == company_id)
+    existing = await db.execute(stmt)
+    existing_record = existing.scalar_one_or_none()
+
+    if existing_record:
+        # Update the existing record
+        existing_record.no_post_list = data.no_post_list
+        # If you have other fields to update, add them here
+
+        await db.commit()
+        await db.refresh(existing_record)
+        return existing_record
+    else:
+        # Create a new record
+        no_post_list = NoPost(
+            no_post_list=data.no_post_list,
+            company_id=company_id,
+        )
+
+        db.add(no_post_list)
+        await db.commit()
+        await db.refresh(no_post_list)
+
+        return no_post_list
+
+
+async def get_company_no_post_list(current_user: User, db: AsyncSession) -> list[DepartmentResponse]:
+    company_id = current_user.id if current_user.user_type == UserType.COMPANY else current_user.company_id
+    stmt = select(NoPost).where(NoPost.company_id == company_id)
+    result = await db.execute(stmt)
+    no_post_list = result.all()
+
+    return no_post_list
+
+
+async def create_outlet(current_user: User, data: DepartmentCreate, db: AsyncSession):
+    await check_permission(current_user, required_permission='create_outlets')
+
+    try:
+
+        outlet = Outlet(
+            name=data.name.lower(),
+            company_id=current_user.id,
+        )
+
+        # Add outlet to database
+        db.add(outlet)
+        await db.commit()
+        await db.refresh(outlet)
+
+        return outlet
+
+    except Exception as e:
+        error_detail = str(e)
+
+        if "outlet_name" in error_detail:
+            # Extract the key and value from the error message
+            key_match = re.search(r"Key \((\w+)\)=\((\w+)\)", error_detail)
+            if key_match:
+                key, value = key_match.groups()
+                raise Exception(
+                    f"Outlet with this {key} '{value}' already exists for this company")
+
+
+async def get_company_outlets(current_user: User, db: AsyncSession) -> list[DepartmentResponse]:
+    company_id = current_user.id if current_user.user_type == UserType.COMPANY else current_user.company_id
+    stmt = select(Outlet).where(Outlet.company_id == company_id)
+    result = await db.execute(stmt)
+    outlets = result.all()
+
+    return outlets
+
+
+async def delete_company_outlet(outlet_id: int, current_user: User, db: AsyncSession) -> None:
+    # Check permission
+    await check_permission(current_user, required_permission='delete_outlets')
+
+    # Determine company ID
+    company_id = current_user.id if current_user.user_type == UserType.COMPANY else current_user.company_id
+
+    # Find the outlet
+    stmt = select(Outlet).where(
+        (Outlet.company_id == company_id) &
+        (Outlet.id == outlet_id)
+    )
+    result = await db.execute(stmt)
+    outlet = result.scalar_one_or_none()
+
+    # Check if outlet exists
+    if not outlet:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Outlet with ID {outlet_id} not found"
+        )
+
+    # Delete the outlet
+    await db.delete(outlet)
+    await db.commit()
+
+    return None

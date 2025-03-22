@@ -316,6 +316,18 @@ class PasswordReset(Base):
     user = relationship("User", back_populates="password_resets")
 
 
+class QRCodeLimit(Base):
+    __tablename__ = "qrcode_limits"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    subscription_type: Mapped[SubscriptionType] = mapped_column(
+        default=SubscriptionType.TRIAL)
+    max_qrcodes: Mapped[int]
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now())
+
 # class Association(Base):
 #     __tablename__ = "association_table"
 #     left_id: Mapped[int] = mapped_column(

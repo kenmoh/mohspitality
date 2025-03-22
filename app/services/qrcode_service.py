@@ -1,15 +1,66 @@
+from datetime import datetime
 from pathlib import Path
 import zipfile
+from fastapi import HTTPException, status
 import qrcode
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.user_models import QRCode, User
+from app.models.user_models import QRCode, QRCodeLimit, User
 from app.schemas.room_schema import OutletType, QRCodeCreate, QRCodeResponse
+from app.schemas.subscriptions import SubscriptionType
 from app.schemas.user_schema import UserType
 
 
+async def initialize_qr_code_limits(db: AsyncSession):
+    """
+    Initialize QR code limits for different subscription types.
+    This function should be run during application startup or as part of a migration.
+    """
+    print("Initializing QR code limits...")
+
+    # Define the limits for each subscription type
+    limits = [
+        {"subscription_type": SubscriptionType.TRIAL, "max_qrcodes": 5},
+        {"subscription_type": SubscriptionType.BASIC, "max_qrcodes": 5},
+        {"subscription_type": SubscriptionType.PREMIUM, "max_qrcodes": 50},
+        {"subscription_type": SubscriptionType.ENTERPRISE, "max_qrcodes": 500}
+    ]
+
+    # Check existing records
+    for limit_data in limits:
+        subscription_type = limit_data["subscription_type"]
+
+        # Check if record already exists
+        result = await db.execute(
+            select(QRCodeLimit).where(
+                QRCodeLimit.subscription_type == subscription_type)
+        )
+        existing_limit = result.scalar_one_or_none()
+
+        if existing_limit:
+            # Update existing record if needed
+            existing_limit.max_qrcodes = limit_data["max_qrcodes"]
+            existing_limit.updated_at = datetime.now()
+            print(
+                f"Updated limit for {subscription_type.name}: {limit_data['max_qrcodes']}")
+        else:
+            # Create new record
+            new_limit = QRCodeLimit(
+                subscription_type=subscription_type,
+                max_qrcodes=limit_data["max_qrcodes"],
+                updated_at=datetime.now()
+            )
+            db.add(new_limit)
+            print(
+                f"Created limit for {subscription_type.name}: {limit_data['max_qrcodes']}")
+
+    # Commit changes
+    await db.commit()
+    print("QR code limits initialization completed.")
+
 # ================== QR CODE ================
+
 
 async def create_qrcode(
     db: AsyncSession, current_user: User, qrcode_data: QRCodeCreate
@@ -24,23 +75,30 @@ async def create_qrcode(
 
     unique_rooms_string = ", ".join(sorted(rooms_set))
 
-    # limits = supabase.table('qr_code_limit').select('*').execute()
+    # Get user's subscription type
+    subscription_type = current_user.subscription_type
 
-    # qrcodes = supabase.table('qrcodes').select(
-    #     '*').eq('company_id', current_user['company_id']).execute().count
+    # Check limit for this subscription type
+    limit_record = await db.execute(
+        select(QRCodeLimit).where(
+            QRCodeLimit.subscription_type == subscription_type)
+    )
+    limit = limit_record.scalar_one_or_none()
 
-    # print(limits, '==================', qrcodes)
+    max_qrcodes = limit.max_qrcodes
 
-    # limit = (
-    #     limits[0]['basic'] if current_user['subscription_type'] == SubscriptionType.BASIC else
-    #     limits[0]['premium'] if current_user['subscription_type'] == SubscriptionType.PREMIUM else
-    #     limits[0]['enterprise'] if current_user['subscription_type'] == SubscriptionType.ENTERPRISE else
-    #     limits[0]['trial'] if current_user['subscription_type'] == SubscriptionType.TRIAL else 0
-    # )
+    # Count existing QR codes for this company
+    count_query = select(func.count(QRCode.id)).where(
+        QRCode.company_id == company_id)
+    result = await db.execute(count_query)
+    current_count = result.scalar_one()
 
-    # if qrcodes >= limit:
-    #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-    #                         detail=f'Your plan have reached the maximum qr code generation limit of {limit}. Please upgrade')
+    # Check if limit reached
+    if current_count >= max_qrcodes:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Your plan has reached the maximum QR code generation limit of {max_qrcodes}. Please upgrade."
+        )
 
     # Generate QR codes
     try:

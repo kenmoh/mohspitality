@@ -9,6 +9,7 @@ from app.config.config import redis_client
 
 from app.routers import auth_router, qrcode_router, user_router
 from app.services.profile_service import pre_create_permissions, setup_company_roles
+from app.services.qrcode_service import initialize_qr_code_limits
 
 
 @asynccontextmanager
@@ -16,6 +17,7 @@ async def lifespan(application: FastAPI):
     db = AsyncSessionLocal()
     try:
         await pre_create_permissions(db)
+        await initialize_qr_code_limits(db)
         # await setup_company_roles(db)
         yield {"db": db, 'redis': redis_client}
     finally:

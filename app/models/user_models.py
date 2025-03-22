@@ -1,3 +1,6 @@
+from uuid import UUID
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column
 from decimal import Decimal
 from random import random
 from typing import Any
@@ -11,9 +14,10 @@ from sqlalchemy.dialects.postgresql import CHAR, JSONB
 from sqlalchemy.orm import mapped_column, Mapped, relationship
 from sqlalchemy.types import TypeDecorator
 
+from app.schemas.item_schema import ItemCategory
 from app.schemas.room_schema import OutletType
 from app.schemas.subscriptions import SubscriptionStatus, SubscriptionType
-from app.schemas.user_schema import CurencySymbol, PaymentGatwayEnum, UserType
+from app.schemas.user_schema import CurencySymbol, PayType, PaymentGatwayEnum, UserType
 
 
 class OrderNumber(TypeDecorator):
@@ -124,6 +128,8 @@ class UserProfile(Base):
     user_id: Mapped[str] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    rate_amount: Mapped[Decimal] = mapped_column(nullable=False)
+    pay_type: Mapped[PayType] = mapped_column(default=PayType.MONTHLY)
     user = relationship("User", back_populates="user_profile")
 
 
@@ -327,6 +333,152 @@ class QRCodeLimit(Base):
         DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), onupdate=func.now())
+
+
+class Payroll(Base):
+    __tablename__ = "payrolls"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey(
+        "users.id", ondelete="CASCADE"), nullable=False)
+    company_id: Mapped[str] = mapped_column(ForeignKey(
+        "users.id", ondelete="CASCADE"), nullable=True)
+
+    period_start: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+    period_end: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    hours_or_days_worked: Mapped[int] = mapped_column(nullable=True)
+    rate_amount: Mapped[Decimal] = mapped_column(nullable=False)
+    total_amount: Mapped[Decimal] = mapped_column(nullable=False)
+
+    payment_status: Mapped[str] = mapped_column(nullable=False)
+    payment_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+    overtime_rate: Mapped[Decimal] = mapped_column(
+        nullable=False, default=0.0)
+    night_shift_allowance: Mapped[Decimal] = mapped_column(
+        nullable=False, default=0.0)
+
+    days_worked: Mapped[int] = mapped_column(
+        nullable=False, default=0)
+    night_shifts: Mapped[int] = mapped_column(
+        nullable=False, default=0)
+    attendance_present: Mapped[int] = mapped_column(
+        nullable=False, default=0)
+    attendance_late: Mapped[int] = mapped_column(
+        nullable=False, default=0)
+
+    late_deduction: Mapped[Decimal] = mapped_column(
+        nullable=False, default=0.0)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class Rate(Base):
+    __tablename__ = "rates"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, autoincrement=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey(
+        "users.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str]
+    pay_type: Mapped[PayType] = mapped_column(
+        default=PayType.MONTHLY)
+    rate_amount: Mapped[Decimal] = mapped_column(nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+
+class AttendanceQRCode(Base):
+    __tablename__ = "attendance_qr_codes"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, autoincrement=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey(
+        "users.id", ondelete="CASCADE"), nullable=False)
+
+    qrcode_image_url: Mapped[str] = mapped_column(nullable=True)
+    fill_color: Mapped[str] = mapped_column(nullable=True)
+    back_color: Mapped[str] = mapped_column(nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+
+class StaffAttendance(Base):
+    __tablename__ = "staff_attendance"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True, nullable=False, autoincrement=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey(
+        "users.id", ondelete="CASCADE"), nullable=False)
+    full_name: Mapped[str] = mapped_column(nullable=True)
+    check_in: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    check_out: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+
+class NavItem(Base):
+    __tablename__ = "nav_items"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True, autoincrement=True)
+    path_name: Mapped[str] = mapped_column(nullable=False)
+    path: Mapped[str] = mapped_column(nullable=False)
+    show: Mapped[bool] = mapped_column(nullable=False, default=True)
+
+
+class ItemStock(Base):
+    __tablename__ = "item_stocks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey(
+        "items.id", ondelete="CASCADE"), nullable=False)
+    company_id: Mapped[int] = mapped_column(ForeignKey(
+        "users.id", ondelete="CASCADE"), nullable=False)
+    quantity: Mapped[int] = mapped_column(nullable=False)
+    notes: Mapped[str] = mapped_column(nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    item: Mapped["Item"] = relationship("Item", back_populates="stocks")
+
+
+class Item(Base):
+    __tablename__ = "items"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(nullable=False)
+    description: Mapped[str] = mapped_column(nullable=False)
+    price: Mapped[Decimal] = mapped_column(nullable=False)
+    company_id: Mapped[int] = mapped_column(ForeignKey(
+        "users.id", ondelete="CASCADE"), nullable=False)
+    quantity: Mapped[int] = mapped_column(default=0, nullable=False)
+    unit: Mapped[str] = mapped_column(nullable=False)  # e.g kg, piece
+    reorder_point: Mapped[int] = mapped_column(
+        default=0, nullable=False)
+    category: Mapped[ItemCategory] = mapped_column(nullable=False)
+    image_url: Mapped[str] = mapped_column(nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    stocks: Mapped[list["ItemStock"]] = relationship(
+        "ItemStock", back_populates="item", cascade="all, delete")
 
 # class Association(Base):
 #     __tablename__ = "association_table"

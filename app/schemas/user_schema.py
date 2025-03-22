@@ -15,6 +15,27 @@ class CurencySymbol(str, Enum):
     AUS = 'AUS'
 
 
+class RotaStatus(str, Enum):
+    DRAFT = 'draft'
+    PUBLISHED = 'published'
+    ARCHIVED = 'archived'
+
+
+class PayType(str, Enum):
+    HOURLY = 'hourly'
+    DAILY = 'daily'
+    WEEKLY = 'weekly'
+    MONTHLY = 'monthly'
+
+
+class ShiftType(str, Enum):
+    MORNING = 'morning'
+    AFTERNOON = 'afternoon'
+    NIGHT = 'night'
+    SWING = 'swing'
+    LEAVE = 'leave'
+
+
 class UserType(str, Enum):
     COMPANY = "company"
     GUEST = "guest"

@@ -12,7 +12,7 @@ from app.schemas.room_schema import QRCodeCreate, QRCodeResponse
 from app.services import qrcode_service
 
 
-router = APIRouter(prefix="/api/qrcodes", tags=["QRCdes"])
+router = APIRouter(prefix="/api/qrcodes", tags=["QRCodes"])
 
 
 @router.post('/generate-qrcodes', status_code=status.HTTP_201_CREATED)
